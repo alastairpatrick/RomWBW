@@ -675,6 +675,7 @@ PVDP_KEYBOARD_STATUS:
         SRL     A
 
         POP     DE
+        JP      Z, CIO_IDLE
         RET
 
 
@@ -900,21 +901,33 @@ _IS_LOWER:
         ; Check for letter
         AND     $DF     ; to upper case
         CP      'A'
-        JP      M, _NO_CASE_SWAP
+        JP      M, _RETURN_ASCII
         CP      'Z'+1
-        JP      P, _NO_CASE_SWAP
+        JP      P, _RETURN_ASCII
 
+        ; Check for CTRL code
+        LD      A, (_MODIFIER_KEYS)
+        AND     $02
+        JR      Z, _CHECK_CAPS_LOCK
+
+        ; Retain only low 4-bits of ASCII code, yielding 0-26.
+        LD      A, D
+        AND     $0F
+        LD      D, A
+        JR      _RETURN_ASCII
+
+_CHECK_CAPS_LOCK:
         ; Check caps lock is enabled
         LD      A, (_MODIFIER_KEYS)
         AND     $40
-        JR      Z, _NO_CASE_SWAP
+        JR      Z, _RETURN_ASCII
 
         ; Swap case
         LD      A, D
         XOR     $20
         LD      D, A
 
-_NO_CASE_SWAP:
+_RETURN_ASCII:
         LD      A, D
         POP     HL
         POP     DE
