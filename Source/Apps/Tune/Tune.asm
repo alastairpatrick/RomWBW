@@ -744,6 +744,9 @@ CFGTBL:	;	PLT	RSEL	RDAT	RIN	Z180	ACR
 	.DB	$0A,	$61,	$60,	$60,	$C0,	$FF	; SCZ180 W/ RC SOUND MODULE (MF)
 	.DW	HWSTR_RCMF
 ;
+	.DB	$0A,	$B1,	$B0,	$B0,	$C0,	$FF	; SCZ180 W/ RC SOUND MODULE (MF)
+	.DW	HWSTR_PVDP
+;
 	.DB	$FF					; END OF TABLE MARKER
 ;
 CFG:		; ACTIVE CONFIG VALUES (FROM SELECTED CFGTBL ENTRY)
@@ -790,6 +793,7 @@ HWSTR_SCG	.DB	"SCG ECB Board",0
 HWSTR_N8	.DB	"N8 Onboard Sound",0
 HWSTR_RCEB	.DB	"RC2014 Sound Module (EB)",0
 HWSTR_RCMF	.DB	"RC2014 Sound Module (MF)",0
+HWSTR_PVDP  .DB "PVDP",0
 ;
 ;===============================================================================
 ; PTx Player Routines
