@@ -29,8 +29,7 @@ _PORT_RDAT              .EQU    $B0
 _PORT_BLIT              .EQU    $B2
 
 _REG_FIFO_WRAP          .EQU    $40
-_REG_FONT_PG            .EQU    $21
-_REG_LEDS               .EQU    $1F
+_REG_LEDS               .EQU    $08
 _REG_LINES_PG           .EQU    $20
 _REG_KEY_ROWS           .EQU    $80
 _REG_SPRITE_BM          .EQU    $30
@@ -39,22 +38,24 @@ _REG_SPRITE_PRD         .EQU    $2D
 _REG_SPRITE_RGB         .EQU    $2F
 _REG_SPRITE_X           .EQU    $2B
 _REG_SPRITE_Y           .EQU    $2C
-_REG_START_LINE         .EQU    $24
+_REG_START_LINE         .EQU    $22
+_REG_WRAP_LINE          .EQU    $23
 
-_BCMD_BSTREAM           .EQU    $F0
-_BCMD_DCLEAR            .EQU    $A4
-_BCMD_DDCOPY            .EQU    $8A
-_BCMD_DSTREAM           .EQU    $B0
-_BCMD_IMAGE             .EQU    $9F
-_BCMD_NOP               .EQU    $3F
-_BCMD_RECT              .EQU    $AC
+_BCMD_BSTREAM           .EQU    $D0
+_BCMD_DCLEAR            .EQU    $84
+_BCMD_DDCOPY            .EQU    $AA
+_BCMD_DSTREAM           .EQU    $90
+_BCMD_IMAGE             .EQU    $BF
+_BCMD_NOP               .EQU    $1F
+_BCMD_RECT              .EQU    $8C
 _BCMD_SET_COUNT         .EQU    $03
-_BCMD_SET_CLIP          .EQU    $01
-_BCMD_SET_COLORS        .EQU    $06
+_BCMD_SET_CLIP          .EQU    $06
+_BCMD_SET_COLORS        .EQU    $05
 _BCMD_SET_DST_ADDR      .EQU    $00
-_BCMD_SET_SRC_ADDR      .EQU    $02
-_BCMD_SET_DPITCH        .EQU    $04
-_BCMD_SET_FLAGS         .EQU    $05
+_BCMD_SET_SRC_ADDR      .EQU    $01
+_BCMD_SET_DPITCH        .EQU    $0A
+_BCMD_SET_FLAGS         .EQU    $04
+_BCMD_SET_GUARD         .EQU    $0D
 
 
 _FONT_SIZE              .EQU    $800
@@ -170,11 +171,21 @@ PVDP_RESET:
         LD      BC, _PALETTE_END - _PALETTE
         LD      A, _BCMD_DSTREAM
         CALL    _BLIT_COPY
-
+        
         ; Lines start in page 12
         LD      C, _REG_LINES_PG
         LD      D, 12
         CALL    _SET_REG_D
+        
+        ; Line wraps back to 0 at 192
+        LD      C, _REG_WRAP_LINE
+        LD      D, 192
+        CALL    _SET_REG_D
+
+        ; Initialize LINE_START
+        XOR     A
+        LD      (_SCROLL), A
+        CALL    _UPDATE_LINE_START
 
         ; Initialize cursor sprite
         LD      D, 60
@@ -228,6 +239,11 @@ _INIT_LINES:
         PUSH    DE
         PUSH    HL
 
+        ; Disable display bank memory protection.
+        LD      DE, $0000
+        LD      C, _BCMD_SET_GUARD
+        CALL    _BLIT_CMD_DE
+
         ; Initialize lines.
         LD      DE, $C000
         LD      C, _BCMD_SET_DST_ADDR
@@ -240,9 +256,7 @@ _INIT_LINES:
         LD      C, _BCMD_DSTREAM
         CALL    _BLIT_CMD
 
-        LD      A, (_SCROLL)    ; HL = _SCROLL * _SCAN_WORDS * 8
-        LD      H, A
-        LD      L, 0
+        LD      HL, 0
         LD      B, _SCAN_LINES
 _LINE_LOOP:
         CALL    _BLIT_SYNC
@@ -328,8 +342,29 @@ _COPY_FONT:
         POP     BC
         RET
 
+_UPDATE_LINE_START:
+        PUSH    BC
+        PUSH    DE
+
+        LD      C, _REG_START_LINE
+        LD      A, (_SCROLL)
+        SLA     A
+        SLA     A
+        SLA     A
+        LD      D, A
+        CALL    _SET_REG_D
+
+        POP     DE
+        POP     BC
+        RET
+
 _INIT_BLIT_REGS:
         PUSH    DE
+
+        ; Enable display bank memory protection.
+        LD      DE, $F000
+        LD      C, _BCMD_SET_GUARD
+        CALL    _BLIT_CMD_DE
 
         ; PITCH = _SCAN_WORDS*8
         LD      DE, _SCAN_WORDS*8
@@ -790,7 +825,7 @@ _BACKWARD_LOOP:
 
 _SCROLL_DONE:
 
-        CALL    _INIT_LINES
+        CALL    _UPDATE_LINE_START
         CALL    _INIT_BLIT_REGS
         CALL    _BLIT_FLUSH
 
